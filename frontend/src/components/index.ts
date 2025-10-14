@@ -4,3 +4,5 @@ export { DeviceCard } from './DeviceCard';
 export { DeviceControlPanel } from './DeviceControl';
 export { DeviceGrid } from './DeviceGrid';
 export { NotificationCenter, NotificationBadge, ToastNotification } from './NotificationCenter';
+export { AddDeviceWizard, DeviceTypeSelector, DeviceConfigurationForm, ConnectionTestStep } from './DeviceWizard';
+export { DeviceList, DeviceSettingsDialog, DeviceRemovalDialog } from './DeviceManagement';

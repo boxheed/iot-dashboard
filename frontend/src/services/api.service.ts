@@ -8,7 +8,7 @@ import { Device, DeviceCommand, DeviceRegistration } from '@shared/types/Device'
 import { HistoricalDataQuery, HistoricalDataResponse, TimeRange } from '@shared/types/HistoricalData';
 
 // Base API configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3001';
 
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,
@@ -126,7 +126,7 @@ export const historicalDataApi = {
       property: query.property,
       query,
       data: response.data.data,
-      totalCount: response.data.count || 0,
+      totalCount: (response.data as any).count || 0,
       isAggregated: false,
     };
   },
