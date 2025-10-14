@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { Device } from '@shared/types/Device';
+import { Notification } from '@shared/types/Notification';
 
 export interface ClientInfo {
   id: string;
@@ -149,13 +150,38 @@ export class WebSocketHandler {
   /**
    * Broadcast notification to all connected clients
    */
-  public broadcastNotification(notification: any): void {
+  public broadcastNotification(notification: Notification): void {
     this.io.emit('notification', {
       ...notification,
       timestamp: new Date().toISOString(),
     });
     
     console.log(`Broadcasted notification to all clients:`, notification);
+  }
+
+  /**
+   * Broadcast notification update (e.g., when marked as read)
+   */
+  public broadcastNotificationUpdate(notificationId: string, updates: { isRead?: boolean }): void {
+    this.io.emit('notification-update', {
+      notificationId,
+      updates,
+      timestamp: new Date().toISOString(),
+    });
+    
+    console.log(`Broadcasted notification update for ${notificationId}:`, updates);
+  }
+
+  /**
+   * Broadcast that all notifications for a device have been marked as read
+   */
+  public broadcastDeviceNotificationsRead(deviceId: string): void {
+    this.io.emit('device-notifications-read', {
+      deviceId,
+      timestamp: new Date().toISOString(),
+    });
+    
+    console.log(`Broadcasted device notifications read for device ${deviceId}`);
   }
 
   /**

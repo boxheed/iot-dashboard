@@ -5,7 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { errorHandler, notFoundHandler, requestLogger } from './middleware';
-import { WebSocketHandler, DataStorageService, DeviceManager } from './services';
+import { WebSocketHandler, DataStorageService, DeviceManager, NotificationService } from './services';
 import apiRoutes, { initializeRoutes } from './routes';
 import { Database } from './utils/database';
 
@@ -58,14 +58,15 @@ const database = new Database({
 });
 
 const dataStorage = new DataStorageService(database);
-const deviceManager = new DeviceManager(dataStorage);
 const webSocketHandler = new WebSocketHandler(io);
+const notificationService = new NotificationService(dataStorage, webSocketHandler);
+const deviceManager = new DeviceManager(dataStorage);
 
 // Connect services
 deviceManager.setWebSocketHandler(webSocketHandler);
 
 // Initialize routes with dependencies
-initializeRoutes(deviceManager, dataStorage);
+initializeRoutes(deviceManager, dataStorage, notificationService);
 
 // Mount API routes
 app.use('/api', apiRoutes);
@@ -103,7 +104,7 @@ const initializeServices = async () => {
 };
 
 // Make services available globally for other modules
-export { webSocketHandler, deviceManager, dataStorage };
+export { webSocketHandler, deviceManager, dataStorage, notificationService };
 
 // 404 handler for undefined routes
 app.use(notFoundHandler);

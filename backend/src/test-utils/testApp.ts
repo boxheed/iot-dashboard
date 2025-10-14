@@ -1,7 +1,7 @@
 import express, { Express } from 'express';
 import cors from 'cors';
 import { Database } from '../utils/database';
-import { DataStorageService, DeviceManager, WebSocketHandler } from '../services';
+import { DataStorageService, DeviceManager, WebSocketHandler, NotificationService } from '../services';
 import { errorHandler, notFoundHandler } from '../middleware';
 import apiRoutes, { initializeRoutes } from '../routes';
 import { createServer } from 'http';
@@ -81,8 +81,9 @@ export async function createTestApp(): Promise<Express> {
 
   // Initialize services
   const dataStorage = new DataStorageService(database);
-  const deviceManager = new DeviceManager(dataStorage);
   const webSocketHandler = new WebSocketHandler(io);
+  const notificationService = new NotificationService(dataStorage, webSocketHandler);
+  const deviceManager = new DeviceManager(dataStorage);
 
   // Connect services
   deviceManager.setWebSocketHandler(webSocketHandler);
@@ -91,7 +92,7 @@ export async function createTestApp(): Promise<Express> {
   await deviceManager.initialize();
 
   // Initialize routes
-  initializeRoutes(deviceManager, dataStorage);
+  initializeRoutes(deviceManager, dataStorage, notificationService);
 
   // Mount API routes
   app.use('/api', apiRoutes);
