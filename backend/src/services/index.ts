@@ -1,2 +1,3 @@
-// Service exports will be added here as services are created
-export {};
+export { WebSocketHandler } from './WebSocketHandler';
+export { DataStorageService } from './DataStorage';
+export { DeviceManager } from './DeviceManager';

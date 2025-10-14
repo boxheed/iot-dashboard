@@ -1,2 +1,2 @@
-// Middleware exports will be added here as middleware are created
-export {};
+export { errorHandler, notFoundHandler, createError } from './errorHandler';
+export { requestLogger } from './requestLogger';

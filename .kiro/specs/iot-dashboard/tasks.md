@@ -72,33 +72,58 @@
     - Test database connection error handling
     - _Requirements: 4.1, 4.2_
 
-- [ ] 4. Build backend API and WebSocket infrastructure
-  - [ ] 4.1 Set up Express server with basic middleware
+- [-] 4. Build backend API and WebSocket infrastructure
+
+
+
+  - [x] 4.1 Set up Express server with basic middleware
+
+
     - Configure Express app with CORS, JSON parsing, and error handling
     - Set up development server with hot reload capabilities
     - Create basic health check and status endpoints
     - _Requirements: 1.2, 2.3_
 
-  - [ ] 4.2 Implement WebSocket server with Socket.io
+  - [x] 4.2 Implement WebSocket server with Socket.io
+
+
     - Set up Socket.io server for real-time communication
     - Create connection handling and client management
     - Implement device update broadcasting system
     - _Requirements: 1.2, 3.3_
 
-  - [ ] 4.3 Create Device Manager Service
+  - [x] 4.3 Create Device Manager Service
+
+
     - Implement device registry and status management
     - Create methods for adding, removing, and updating devices
     - Add device command processing and validation
     - _Requirements: 1.1, 2.1, 5.1, 5.2_
 
-  - [ ] 4.4 Build REST API endpoints for device management
+  - [x] 4.4 Build REST API endpoints for device management
+
+
     - Create GET /api/devices endpoint for device listing
     - Implement POST /api/devices for device registration
     - Add PUT /api/devices/:id for device updates and controls
     - Create DELETE /api/devices/:id for device removal
     - _Requirements: 1.1, 2.1, 5.1, 5.4_
 
-  - [ ] 4.5 Write API integration tests
+  - [x] 4.5 Write API integration tests
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     - Test all REST endpoints with various input scenarios
     - Verify WebSocket message broadcasting functionality
     - Test error handling and validation responses
