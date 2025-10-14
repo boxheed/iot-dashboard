@@ -1,2 +1,3 @@
-// Page exports will be added here as pages are created
-export {};
+export { Dashboard } from './Dashboard';
+export { DeviceManagement } from './DeviceManagement';
+export { Settings } from './Settings';

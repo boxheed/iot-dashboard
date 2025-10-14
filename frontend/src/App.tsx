@@ -1,6 +1,9 @@
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { BrowserRouter } from 'react-router-dom';
+import { AppProvider } from './context/AppContext';
+import { AppLayout, WebSocketProvider } from './components';
+import { AppRoutes } from './routes';
 
 const theme = createTheme({
   palette: {
@@ -12,6 +15,15 @@ const theme = createTheme({
       main: '#dc004e',
     },
   },
+  breakpoints: {
+    values: {
+      xs: 0,
+      sm: 600,
+      md: 900,
+      lg: 1200,
+      xl: 1536,
+    },
+  },
 });
 
 function App() {
@@ -19,10 +31,13 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <BrowserRouter>
-        <div className="App">
-          <h1>IoT Dashboard</h1>
-          <p>Welcome to your smart home dashboard!</p>
-        </div>
+        <AppProvider>
+          <WebSocketProvider>
+            <AppLayout>
+              <AppRoutes />
+            </AppLayout>
+          </WebSocketProvider>
+        </AppProvider>
       </BrowserRouter>
     </ThemeProvider>
   );
