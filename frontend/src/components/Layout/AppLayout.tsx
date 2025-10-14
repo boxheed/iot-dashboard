@@ -14,18 +14,18 @@ import {
   Typography,
   useTheme,
   useMediaQuery,
-  Badge,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
   Devices as DevicesIcon,
   Settings as SettingsIcon,
-  Notifications as NotificationsIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { MobileNavigation } from './MobileNavigation';
+import { NotificationCenter, NotificationBadge, ToastNotification } from '../NotificationCenter';
+import { useToastNotifications } from '../../hooks/useToastNotifications';
 
 const drawerWidth = 240;
 
@@ -61,12 +61,13 @@ export function AppLayout({ children }: AppLayoutProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [notificationCenterOpen, setNotificationCenterOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { state } = useAppContext();
 
-  // Count unread notifications
-  const unreadNotifications = state.notifications.filter(n => !n.isRead).length;
+  // Toast notifications
+  const { currentToast, closeToast } = useToastNotifications();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -77,6 +78,10 @@ export function AppLayout({ children }: AppLayoutProps) {
     if (isMobile) {
       setMobileOpen(false);
     }
+  };
+
+  const handleNotificationToggle = () => {
+    setNotificationCenterOpen(!notificationCenterOpen);
   };
 
   const drawer = (
@@ -145,11 +150,10 @@ export function AppLayout({ children }: AppLayoutProps) {
           </Box>
 
           {/* Notifications badge */}
-          <IconButton color="inherit">
-            <Badge badgeContent={unreadNotifications} color="error">
-              <NotificationsIcon />
-            </Badge>
-          </IconButton>
+          <NotificationBadge
+            onClick={handleNotificationToggle}
+            isOpen={notificationCenterOpen}
+          />
         </Toolbar>
       </AppBar>
 
@@ -202,6 +206,18 @@ export function AppLayout({ children }: AppLayoutProps) {
 
       {/* Mobile bottom navigation */}
       <MobileNavigation />
+
+      {/* Notification Center */}
+      <NotificationCenter
+        isOpen={notificationCenterOpen}
+        onClose={() => setNotificationCenterOpen(false)}
+      />
+
+      {/* Toast Notifications */}
+      <ToastNotification
+        notification={currentToast}
+        onClose={closeToast}
+      />
     </Box>
   );
 }
