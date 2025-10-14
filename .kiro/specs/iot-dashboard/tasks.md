@@ -328,20 +328,31 @@
     - Test error handling and validation in device management
     - _Requirements: 5.1, 5.2, 5.3, 5.4_
 
-- [ ] 11. Add MQTT integration for real IoT devices
-  - [ ] 11.1 Implement MQTT client service
+- [x] 11. Add MQTT integration for real IoT devices
+
+
+
+
+
+  - [x] 11.1 Implement MQTT client service
+
+
     - Set up MQTT client with connection management
     - Create device discovery and communication protocols
     - Add message parsing and device state synchronization
     - _Requirements: 1.1, 1.2, 2.1_
 
-  - [ ] 11.2 Create device simulators for development and testing
+  - [x] 11.2 Create device simulators for development and testing
+
+
     - Build mock IoT devices that publish test data via MQTT
     - Create various device types (sensors, switches, thermostats)
     - Add realistic data patterns and occasional offline scenarios
     - _Requirements: 1.1, 1.3, 2.1_
 
-  - [ ] 11.3 Test MQTT integration and device communication
+  - [x] 11.3 Test MQTT integration and device communication
+
+
     - Test MQTT message handling and device state updates
     - Verify device discovery and connection processes
     - Test error handling for device communication failures

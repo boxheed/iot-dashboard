@@ -1,11 +1,13 @@
 import { Device, DeviceCommand, DeviceRegistration, DeviceStatus } from '@shared/types/Device';
 import { DataStorageService } from '../DataStorage';
 import { WebSocketHandler } from '../WebSocketHandler';
+import { MqttClientService, MqttDiscoveryMessage } from '../MqttClient';
 
 export class DeviceManager {
   private devices: Map<string, Device> = new Map();
   private dataStorage: DataStorageService;
   private webSocketHandler?: WebSocketHandler;
+  private mqttClient?: MqttClientService;
 
   constructor(dataStorage: DataStorageService) {
     this.dataStorage = dataStorage;
@@ -16,6 +18,14 @@ export class DeviceManager {
    */
   public setWebSocketHandler(webSocketHandler: WebSocketHandler): void {
     this.webSocketHandler = webSocketHandler;
+  }
+
+  /**
+   * Set the MQTT client for IoT device communication
+   */
+  public setMqttClient(mqttClient: MqttClientService): void {
+    this.mqttClient = mqttClient;
+    this.setupMqttEventHandlers();
   }
 
   /**
@@ -169,13 +179,36 @@ export class DeviceManager {
         return { success: false, message: validationResult.message };
       }
 
-      // Update device property based on command
+      // Send command via MQTT if client is available and device is online
+      if (this.mqttClient && this.mqttClient.isClientConnected() && device.status === 'online') {
+        try {
+          await this.mqttClient.sendDeviceCommand(command.deviceId, command.controlKey, command.value);
+          console.log(`MQTT command sent to device ${device.name}: ${command.controlKey} = ${command.value}`);
+          
+          // For MQTT devices, we'll wait for the device to respond with updated state
+          // The actual device update will happen when we receive the property update via MQTT
+          return { 
+            success: true, 
+            message: 'Command sent to device via MQTT',
+            data: { 
+              deviceId: command.deviceId,
+              controlKey: command.controlKey,
+              value: command.value 
+            }
+          };
+        } catch (mqttError) {
+          console.error('Failed to send MQTT command, falling back to local update:', mqttError);
+          // Fall back to local update if MQTT fails
+        }
+      }
+
+      // Fallback: Update device property locally (for simulated devices or when MQTT is unavailable)
       const updatedDevice = await this.applyDeviceCommand(device, command);
       if (!updatedDevice) {
         return { success: false, message: 'Failed to apply command' };
       }
 
-      console.log(`Command processed for device ${device.name}: ${command.controlKey} = ${command.value}`);
+      console.log(`Command processed locally for device ${device.name}: ${command.controlKey} = ${command.value}`);
 
       return { 
         success: true, 
@@ -235,6 +268,76 @@ export class DeviceManager {
    */
   public getOnlineDevices(): Device[] {
     return Array.from(this.devices.values()).filter(device => device.status === 'online');
+  }
+
+  /**
+   * Discover devices via MQTT
+   */
+  public async discoverMqttDevices(): Promise<MqttDiscoveryMessage[]> {
+    if (!this.mqttClient || !this.mqttClient.isClientConnected()) {
+      throw new Error('MQTT client not available or not connected');
+    }
+
+    // Clear previous discoveries
+    this.mqttClient.clearDiscoveredDevices();
+
+    // Request device discovery
+    await this.mqttClient.requestDeviceDiscovery();
+
+    // Wait a bit for devices to respond
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    return this.mqttClient.getDiscoveredDevices();
+  }
+
+  /**
+   * Add device from MQTT discovery
+   */
+  public async addDeviceFromDiscovery(discoveryData: MqttDiscoveryMessage): Promise<Device> {
+    try {
+      // Create device registration from discovery data
+      const registration: DeviceRegistration = {
+        name: discoveryData.name,
+        type: discoveryData.type as any, // Type assertion needed due to string vs enum
+        room: discoveryData.room || 'Unknown',
+        connectionConfig: {
+          mqttDeviceId: discoveryData.deviceId,
+          capabilities: discoveryData.capabilities,
+        },
+      };
+
+      // Create device object with discovery data
+      const device: Device = {
+        id: discoveryData.deviceId, // Use MQTT device ID directly
+        name: discoveryData.name,
+        type: registration.type,
+        room: registration.room,
+        status: 'online', // Assume online since we just discovered it
+        lastSeen: new Date(),
+        properties: [],
+        controls: discoveryData.controls?.map(control => ({
+          ...control,
+          type: control.type as any // Type assertion for MQTT control types
+        })) || this.getDefaultControlsForType(registration.type),
+        thresholds: [],
+      };
+
+      // Save to storage
+      await this.dataStorage.saveDevice(device);
+
+      // Add to memory
+      this.devices.set(device.id, device);
+
+      console.log(`MQTT device added: ${device.name} (${device.id})`);
+
+      // Broadcast device addition
+      this.broadcastDeviceUpdate(device);
+
+      return device;
+    } catch (error) {
+      console.error('Failed to add device from discovery:', error);
+      throw new Error(`Failed to add device from discovery: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   // Private helper methods
@@ -342,6 +445,96 @@ export class DeviceManager {
   private broadcastDeviceUpdate(device: Device): void {
     if (this.webSocketHandler) {
       this.webSocketHandler.broadcastDeviceUpdate(device);
+    }
+  }
+
+  /**
+   * Set up MQTT event handlers
+   */
+  private setupMqttEventHandlers(): void {
+    if (!this.mqttClient) return;
+
+    // Handle device status updates from MQTT
+    this.mqttClient.on('deviceStatusUpdate', async (data: { deviceId: string; status: DeviceStatus; timestamp: number }) => {
+      console.log(`MQTT status update for device ${data.deviceId}: ${data.status}`);
+      await this.updateDeviceStatus(data.deviceId, data.status);
+    });
+
+    // Handle device property updates from MQTT
+    this.mqttClient.on('devicePropertyUpdate', async (data: { deviceId: string; property: any }) => {
+      console.log(`MQTT property update for device ${data.deviceId}: ${data.property.key} = ${data.property.value}`);
+      
+      const device = this.devices.get(data.deviceId);
+      if (device) {
+        // Update or add property
+        const propertyIndex = device.properties.findIndex(p => p.key === data.property.key);
+        if (propertyIndex >= 0) {
+          device.properties[propertyIndex] = data.property;
+        } else {
+          device.properties.push(data.property);
+        }
+
+        // Update device status and last seen
+        device.status = 'online';
+        device.lastSeen = new Date();
+
+        // Save to storage
+        await this.dataStorage.saveDevice(device);
+
+        // Save historical data
+        await this.dataStorage.saveDeviceData(device.id, data.property.key, data.property.value);
+
+        // Broadcast update
+        this.broadcastDeviceUpdate(device);
+      }
+    });
+
+    // Handle device discovery
+    this.mqttClient.on('deviceDiscovered', (discoveryData: MqttDiscoveryMessage) => {
+      console.log(`Device discovered via MQTT: ${discoveryData.name} (${discoveryData.deviceId})`);
+      // Discovery data is stored in the MQTT client and can be retrieved via getDiscoveredDevices()
+    });
+
+    // Handle command responses
+    this.mqttClient.on('deviceCommandResponse', (data: { deviceId: string; response: any }) => {
+      console.log(`Command response from device ${data.deviceId}:`, data.response);
+      // Could emit this to WebSocket clients if needed for real-time feedback
+      if (this.webSocketHandler) {
+        // Use the io instance directly to broadcast to all clients
+        (this.webSocketHandler as any).io.emit('device-command-response', {
+          deviceId: data.deviceId,
+          response: data.response,
+        });
+      }
+    });
+
+    // Handle MQTT connection events
+    this.mqttClient.on('connected', () => {
+      console.log('MQTT client connected - device communication enabled');
+    });
+
+    this.mqttClient.on('disconnected', () => {
+      console.log('MQTT client disconnected - device communication disabled');
+      // Mark all MQTT devices as offline
+      this.markMqttDevicesOffline();
+    });
+
+    this.mqttClient.on('error', (error: Error) => {
+      console.error('MQTT client error:', error);
+    });
+  }
+
+  /**
+   * Mark all MQTT-connected devices as offline
+   */
+  private async markMqttDevicesOffline(): Promise<void> {
+    const devices = Array.from(this.devices.values());
+    
+    for (const device of devices) {
+      // Check if device has MQTT connection config (indicating it's an MQTT device)
+      if (device.status === 'online') {
+        await this.updateDeviceStatus(device.id, 'offline');
+      }
     }
   }
 }

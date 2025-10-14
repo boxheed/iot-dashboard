@@ -5,7 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { errorHandler, notFoundHandler, requestLogger } from './middleware';
-import { WebSocketHandler, DataStorageService, DeviceManager, NotificationService } from './services';
+import { WebSocketHandler, DataStorageService, DeviceManager, NotificationService, MqttClientService } from './services';
 import apiRoutes, { initializeRoutes } from './routes';
 import { Database } from './utils/database';
 
@@ -62,8 +62,16 @@ const webSocketHandler = new WebSocketHandler(io);
 const notificationService = new NotificationService(dataStorage, webSocketHandler);
 const deviceManager = new DeviceManager(dataStorage);
 
+// Initialize MQTT client
+const mqttBrokerUrl = process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883';
+const mqttClient = new MqttClientService(mqttBrokerUrl, {
+  username: process.env.MQTT_USERNAME,
+  password: process.env.MQTT_PASSWORD,
+});
+
 // Connect services
 deviceManager.setWebSocketHandler(webSocketHandler);
+deviceManager.setMqttClient(mqttClient);
 
 // Initialize routes with dependencies
 initializeRoutes(deviceManager, dataStorage, notificationService);
@@ -96,6 +104,16 @@ const initializeServices = async () => {
   try {
     await database.connect();
     await deviceManager.initialize();
+    
+    // Initialize MQTT client (non-blocking)
+    try {
+      await mqttClient.connect();
+      console.log('MQTT client connected successfully');
+    } catch (mqttError) {
+      console.warn('MQTT client connection failed, continuing without MQTT:', mqttError);
+      // Continue without MQTT - the system should work with simulated devices
+    }
+    
     console.log('All services initialized successfully');
   } catch (error) {
     console.error('Failed to initialize services:', error);
@@ -104,7 +122,7 @@ const initializeServices = async () => {
 };
 
 // Make services available globally for other modules
-export { webSocketHandler, deviceManager, dataStorage, notificationService };
+export { webSocketHandler, deviceManager, dataStorage, notificationService, mqttClient };
 
 // 404 handler for undefined routes
 app.use(notFoundHandler);
@@ -113,16 +131,18 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // Graceful shutdown handling
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   console.log('SIGTERM received, shutting down gracefully');
+  await mqttClient.disconnect();
   server.close(() => {
     console.log('Server closed');
     process.exit(0);
   });
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('SIGINT received, shutting down gracefully');
+  await mqttClient.disconnect();
   server.close(() => {
     console.log('Server closed');
     process.exit(0);

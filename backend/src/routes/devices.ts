@@ -268,4 +268,55 @@ router.get('/type/:type', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /api/devices/discover
+ * Discover devices via MQTT
+ */
+router.post('/discover', async (_req: Request, res: Response) => {
+  try {
+    const discoveredDevices = await deviceManager.discoverMqttDevices();
+
+    res.json({
+      success: true,
+      data: discoveredDevices,
+      count: discoveredDevices.length,
+      message: 'Device discovery completed',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Error discovering devices:', error);
+    throw createError('Failed to discover devices via MQTT', 500);
+  }
+});
+
+/**
+ * POST /api/devices/add-discovered
+ * Add a device from MQTT discovery
+ */
+router.post('/add-discovered', async (req: Request, res: Response) => {
+  try {
+    const discoveryData = req.body;
+
+    // Validate required fields
+    if (!discoveryData.deviceId || !discoveryData.name || !discoveryData.type) {
+      throw createError('Missing required fields: deviceId, name, type', 400);
+    }
+
+    const device = await deviceManager.addDeviceFromDiscovery(discoveryData);
+
+    res.status(201).json({
+      success: true,
+      data: device,
+      message: 'Device added from discovery successfully',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    if (error instanceof Error && (error as any).statusCode) {
+      throw error;
+    }
+    console.error('Error adding discovered device:', error);
+    throw createError('Failed to add discovered device', 500);
+  }
+});
+
 export default router;
